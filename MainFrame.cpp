@@ -1,5 +1,7 @@
 #include "MainFrame.h"
 #include <wx/wx.h>
+#include <string>
+#include "exprtk.hpp"
 
 MainFrame::MainFrame(const wxString& title)
 	: wxFrame(nullptr, wxID_ANY, title)
@@ -7,7 +9,7 @@ MainFrame::MainFrame(const wxString& title)
 
 	wxPanel* panel = new wxPanel(this);
 
-	wxTextCtrl* inputField = new wxTextCtrl(panel, wxID_ANY, "", wxDefaultPosition, wxSize(0, 100));
+	inputField = new wxTextCtrl(panel, wxID_ANY, "", wxDefaultPosition, wxSize(0, 100));
 	wxFont font(30, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
 	inputField->SetFont(font);
 
@@ -62,20 +64,48 @@ MainFrame::MainFrame(const wxString& title)
 	gridSizer->Add(button0, gridFlags);
 	gridSizer->Add(dotButton, gridFlags);
 	gridSizer->Add(equalButton, gridFlags);
-
-
 	wxFont numpadFont(20, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
 	for (size_t i = 0; i < gridSizer->GetItemCount(); ++i) {
 		wxSizerItem* item = gridSizer->GetItem(i);
 		wxWindow* widget = item->GetWindow();
 		if (widget) {
 			widget->SetFont(numpadFont);
+			if ((widget != equalButton)&&(widget!=clearButton)) {
+				widget->Bind(wxEVT_BUTTON, &MainFrame::OnButtonClicked, this);
+			}
 		}
 	}
+	clearButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& evt) {
+		inputField->SetValue("");
+		});
+
+	equalButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& evt) {
+		wxString wxExpression = inputField->GetValue();
+		std::string expression = wxExpression.ToStdString();
+
+		using symbol_table_t = exprtk::symbol_table<double>;
+		using expression_t = exprtk::expression<double>;
+		using parser_t = exprtk::parser<double>;
+
+		symbol_table_t symbol_table;
+		expression_t expression_obj;
+		parser_t parser;
+
+		if (!parser.compile(expression, expression_obj)) {
+			wxMessageBox("Invalid expression!", "Error", wxICON_ERROR);
+			return;
+		}
+		double result = expression_obj.value();
+		wxString resultString = wxString::Format("%.6f", result);
+
+		inputField->SetValue(resultString);
+		});
 
 	wxBoxSizer* rightSizer = new wxBoxSizer(wxVERTICAL);
 	rightSizer->Add(minusButton, wxSizerFlags().Expand().Proportion(1));
 	rightSizer->Add(plusButton, wxSizerFlags().Expand().Proportion(1));
+		plusButton->Bind(wxEVT_BUTTON, &MainFrame::OnButtonClicked, this);
+		minusButton->Bind(wxEVT_BUTTON, &MainFrame::OnButtonClicked, this);
 
 	numpadSizer->Add(gridSizer, wxSizerFlags().Expand().Proportion(2));
 	numpadSizer->Add(rightSizer, wxSizerFlags().Expand().Proportion(1));
@@ -87,3 +117,18 @@ MainFrame::MainFrame(const wxString& title)
 	mainSizer->SetSizeHints(this);
 
 }
+void MainFrame::OnButtonClicked(wxCommandEvent& evt)
+{
+	wxButton* button = dynamic_cast<wxButton*>(evt.GetEventObject());
+
+	if (button) {
+		wxString buttonText = button->GetLabel();
+
+		wxString currentText = inputField->GetValue();
+
+		wxString newText = currentText + buttonText;
+
+		inputField->SetValue(newText);
+	}
+}
+

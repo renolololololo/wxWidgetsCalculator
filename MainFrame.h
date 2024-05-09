@@ -5,5 +5,8 @@ class MainFrame : public wxFrame
 {
 public:
 	MainFrame(const wxString& title);
+	wxTextCtrl* inputField;
+private:
+	void OnButtonClicked(wxCommandEvent& evt);
 };
 
